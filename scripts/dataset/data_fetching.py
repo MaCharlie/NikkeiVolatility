@@ -1,18 +1,13 @@
+import os
 import traceback
 
-import baostock as bs
-import pandas as pd
 import numpy as np
-import os
+import pandas as pd
 import yfinance as yf
-import pandas_datareader as web
-
-
-
 
 START_DATE = '2010-01-01'
 END_DATE = '2025-12-31'
-OUTPUT_DIR = "raw_data"
+OUTPUT_DIR = "raw_data/fetched_data"
 cur_dir = os.getcwd()
 scripts_dir = os.path.dirname(cur_dir)
 root_dir = os.path.dirname(scripts_dir)
