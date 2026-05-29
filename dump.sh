@@ -1,0 +1,2 @@
+curl -O https://raw.githubusercontent.com/microsoft/qlib/main/scripts/dump_bin.py
+python dump_bin.py dump_all --data_path raw_data/split_data --qlib_dir data/nikkei_data --freq day --include_fields open,high,low,close,volume,factor --date_field_name date
