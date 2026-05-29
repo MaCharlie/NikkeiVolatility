@@ -1,0 +1,42 @@
+data_handler:
+  class: "CustomFeatures"
+  module_path: "scripts.feature_engineering.custom_modules"
+  kwargs:
+    start_time: "2010-01-01"
+    end_time: "2025-12-31"
+    fit_start_time: "2010-01-01"
+    fit_end_time: "2019-12-31"
+
+    instruments: ['US_SP500', 'JP_225', 'EU_STOXX50', 'HK_HSI']
+
+    label:
+      - "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
+
+    learn_processors:
+      - class: "DropnaProcessor"
+        kwargs:
+          fields_group: "feature"
+
+      - class: "DropnaLabel"
+      - class: "RobustZScoreNorm"
+        kwargs:
+            fields_group: "feature"
+            clip_outlier: true
+      - class: "MacroBroadcastProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
+          fields: ['$close']
+          make_stationary: true
+
+    infer_processors:
+      - class: "RobustZScoreNorm"
+        kwargs:
+            fields_group: "feature"
+            clip_outlier: true
+      - class: "MacroBroadcastProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
+          fields: ['$close']
+          make_stationary: true
