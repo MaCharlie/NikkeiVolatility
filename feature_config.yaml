@@ -9,34 +9,44 @@ data_handler:
 
     instruments: ['US_SP500', 'JP_225', 'EU_STOXX50', 'HK_HSI']
 
-    label:
-      - "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
+#    label:
+#      - Target_Volatility: "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
+#      - "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
 
     learn_processors:
+
+      - class: "MacroBroadcastProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
+          fields: ['$close']
+          make_stationary: true
+
       - class: "DropnaProcessor"
         kwargs:
           fields_group: "feature"
 
       - class: "DropnaLabel"
+
       - class: "RobustZScoreNorm"
         kwargs:
             fields_group: "feature"
             clip_outlier: true
-      - class: "MacroBroadcastProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
-        kwargs:
-          macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
-          fields: ['$close']
-          make_stationary: true
 
     infer_processors:
+
+      - class: "MacroBroadcastProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          macro_tickers: [ '10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX' ]
+          fields: [ '$close' ]
+          make_stationary: true
+
+      - class: "DropnaProcessor"
+        kwargs:
+          fields_group: "feature"
+
       - class: "RobustZScoreNorm"
         kwargs:
             fields_group: "feature"
             clip_outlier: true
-      - class: "MacroBroadcastProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
-        kwargs:
-          macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
-          fields: ['$close']
-          make_stationary: true
