@@ -76,42 +76,44 @@ class MacroBroadcastProcessor(Processor):
         return merged_df
 
 
-# class CrossMarketSpilloverProcessor(Processor):
-#     def __init__(self, target_instrument='JP_225'):
-#         super().__init__()
-#         self.target_instrument = target_instrument
-#
-#     def fit(self, df: pd.DataFrame = None):
-#         pass
-#
-#     def __call__(self, df: pd.DataFrame):
-#         print(f"Executing Cross-Market Spillover to target instrument: {self.target_instrument}...")
-#         idx = pd.IndexSlice
-#
-#         # 1. fetching all features, instrument spread into columns
-#         feat_df = df['feature'].unstack(level='instrument')
-#
-#         # 2. other markets
-#         all_insts = df.index.get_level_values("instrument").unique()
-#         other_insts = [inst for inst in all_insts if inst != self.target_instrument]
-#
-#         # nikkei's row mask and date
-#         target_mask = df.index.get_level_values('instrument') == self.target_instrument
-#         target_dates = df[target_mask].index.get_level_values("datetime")
-#
-#         # 3. rename features of other markets and spillover to Nikkei's row
-#         for inst in other_insts:
-#             if inst in feat_df.columns.get_level_values('instrument'):
-#                 # other markets' features
-#                 inst_features = feat_df.xs(inst, level='instrument', axis=1)
-#
-#                 for feat_name in inst_features.columns:
-#                     new_col_name = f"{inst}_{feat_name}"
-#                     # reindex to
-#                     aligned_values = inst_features.reindex(target_dates)[feat_name].values
-#                     df.loc[target_mask, ('feature', new_col_name)] = aligned_values
-#
-#         df.loc[~target_mask, 'label'] = np.nan
-#
-#         print(f"Spillover complete. Total features per row now: {df['feature'].shape[1]}")
-#         return df
+class CrossMarketSpilloverProcessor(Processor):
+    def __init__(self, target_instrument='JP_225'):
+        super().__init__()
+        self.target_instrument = target_instrument
+
+    def fit(self, df: pd.DataFrame = None):
+        pass
+
+    def __call__(self, df: pd.DataFrame):
+        print(f"Executing Cross-Market Spillover to target instrument: {self.target_instrument}...")
+        idx = pd.IndexSlice
+
+        # 1. fetching all features, instrument spread into columns
+        feat_df = df['feature'].unstack(level='instrument')
+        # feat_df = df.unstack(level='instrument')
+
+        # 2. other markets
+        all_insts = df.index.get_level_values("instrument").unique()
+        other_insts = [inst for inst in all_insts if inst != self.target_instrument]
+
+        # nikkei's row mask and date
+        target_mask = df.index.get_level_values('instrument') == self.target_instrument
+        target_dates = df[target_mask].index.get_level_values("datetime")
+
+        # 3. rename features of other markets and spillover to Nikkei's row
+        for inst in other_insts:
+            if inst in feat_df.columns.get_level_values('instrument'):
+                # other markets' features
+                inst_features = feat_df.xs(inst, level='instrument', axis=1)
+
+                for feat_name in inst_features.columns:
+                    new_col_name = f"{inst}_{feat_name}"
+                    # reindex to
+                    aligned_values = inst_features.reindex(target_dates)[feat_name].values
+                    df.loc[target_mask, ('feature', new_col_name)] = aligned_values
+
+        # df.loc[~target_mask, 'label'] = np.nan
+        result_df = df.loc[target_mask].copy()
+
+        print(f"Spillover complete. Total features per row now: {result_df['feature'].shape[1]}")
+        return result_df

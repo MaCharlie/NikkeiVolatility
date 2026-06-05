@@ -9,12 +9,15 @@ data_handler:
 
     instruments: ['US_SP500', 'JP_225', 'EU_STOXX50', 'HK_HSI']
 
-#    label:
-#      - Target_Volatility: "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
-#      - "Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"
 
     learn_processors:
+      # dataset structure transformation, must be the first processor in the list
+      - class: "CrossMarketSpilloverProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          target_instrument: 'JP_225'
 
+      # macro data broadcasting, must be after the dataset structure transformation processor
       - class: "MacroBroadcastProcessor"
         module_path: "scripts.feature_engineering.custom_modules"
         kwargs:
@@ -28,12 +31,18 @@ data_handler:
 
       - class: "DropnaLabel"
 
+      # feature normalization, must be after all feature engineering processors
       - class: "RobustZScoreNorm"
         kwargs:
             fields_group: "feature"
             clip_outlier: true
 
     infer_processors:
+      # there mustn't be DropnaLabel processor in the infer_processors, otherwise there will be no data for inference after dropping na labels
+      - class: "CrossMarketSpilloverProcessor"
+        module_path: "scripts.feature_engineering.custom_modules"
+        kwargs:
+          target_instrument: 'JP_225'
 
       - class: "MacroBroadcastProcessor"
         module_path: "scripts.feature_engineering.custom_modules"
