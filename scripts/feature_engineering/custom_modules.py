@@ -27,7 +27,7 @@ class CustomFeatures(Alpha158):
         return feature_dict, feature_names
 
     def get_label_config(self):
-        return ["Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"], ["Target_Volatility"]
+        return ["10000 * Ref(Mean(0.5 * (Log($high / $low) ** 2) - 0.38629 * (Log($close / $open) ** 2), 5), -5)"], ["Target_Volatility"]
 
 class MacroBroadcastProcessor(Processor):
     def __init__(self, macro_tickers, fields=['$close'], make_stationary=True):
@@ -100,20 +100,32 @@ class CrossMarketSpilloverProcessor(Processor):
         target_mask = df.index.get_level_values('instrument') == self.target_instrument
         target_dates = df[target_mask].index.get_level_values("datetime")
 
+        target_idx = df[target_mask].index
+        new_cols = {}
+
         # 3. rename features of other markets and spillover to Nikkei's row
         for inst in other_insts:
             if inst in feat_df.columns.get_level_values('instrument'):
                 # other markets' features
                 inst_features = feat_df.xs(inst, level='instrument', axis=1)
 
+                reindexed = inst_features.reindex(target_dates)
                 for feat_name in inst_features.columns:
-                    new_col_name = f"{inst}_{feat_name}"
+                    # new_col_name = f"{inst}_{feat_name}"
                     # reindex to
-                    aligned_values = inst_features.reindex(target_dates)[feat_name].values
-                    df.loc[target_mask, ('feature', new_col_name)] = aligned_values
+                    # aligned_values = inst_features.reindex(target_dates)[feat_name].values
+                    # df.loc[target_mask, ('feature', new_col_name)] = aligned_values
 
-        # df.loc[~target_mask, 'label'] = np.nan
-        result_df = df.loc[target_mask].copy()
+                    col_key = ('feature', f"{inst}_{feat_name}")
+                    new_cols[col_key] = reindexed[feat_name].values
+
+        if new_cols:
+            new_df = pd.DataFrame(new_cols, index=target_idx)
+            new_df.columns = pd.MultiIndex.from_tuples(new_df.columns)
+            result_df = df.loc[target_mask].copy()
+            result_df = pd.concat([result_df, new_df], axis=1)
+        else:
+            result_df = df.loc[target_mask].copy()
 
         print(f"Spillover complete. Total features per row now: {result_df['feature'].shape[1]}")
         return result_df
