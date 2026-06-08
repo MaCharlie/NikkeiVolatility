@@ -1,6 +1,7 @@
 data/
 raw_data/
 test/
+results/*
 .DS_Store
 .idea/
 __pycache__/

@@ -49,17 +49,25 @@ class MacroBroadcastProcessor(Processor):
 
         macro_df = macro_data.unstack(level='instrument')
 
+        # calculate the Spread between 10Y-US GB yield and 10Y-JP GB yield if both are present
         if ('$close', '10Y_US') in macro_df.columns and ('$close', '10Y_JP') in macro_df.columns:
             macro_df[('$close', 'US_JP_Spread')] = macro_df[('$close', '10Y_US')] - macro_df[('$close', '10Y_JP')]
 
             macro_df = macro_df.drop(columns=[('$close', '10Y_US'), ('$close', '10Y_JP')])
             print("Added US_JP_Spread feature by calculating the difference between 10Y US and 10Y JP yields. Original absolute value deleted to prevent total collinearity")
 
+        # apply differencing to make features stationary if specified
         if self.make_stationary:
+            # besides, reserve the original VIX values because VIX is I(0) stationary series.
+            vix_col = ('$close', 'VIX')
+            vix_origin = macro_df[vix_col].copy() if vix_col in macro_df.columns else None
             macro_df = macro_df.diff()
+            if vix_origin is not None:
+                macro_df[('$close', 'VIX_Origin')] = vix_origin
+                macro_df[vix_col] = vix_origin
             print("Applied differencing to macro features to make them stationary.")
 
-        # macro_df.columns = [f"Macro_{tic}" for field, tic in macro_df.columns]
+        # rename all macro features
         macro_df.columns = pd.MultiIndex.from_tuples(
             [('feature', f"Macro_{tic}") for filed, tic in macro_df.columns]
         )
@@ -70,6 +78,7 @@ class MacroBroadcastProcessor(Processor):
         if not overlap_cols.empty:
             df = df.drop(columns=overlap_cols)
 
+        # concatenate macro features after the original dataset
         merged_df = df.join(macro_df, on='datetime', how='left')
         merged_df = merged_df.fillna(method='ffill').fillna(0)
 
