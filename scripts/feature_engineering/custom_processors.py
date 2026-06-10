@@ -1,0 +1,138 @@
+import pandas as pd
+from qlib.data import D
+from qlib.data.dataset.processor import Processor
+
+
+class MacroBroadcastProcessor(Processor):
+    def __init__(self, macro_tickers, fields=['$close'], make_stationary=True):
+        super().__init__()
+        self.macro_tickers = macro_tickers
+        self.fields = fields
+        self.make_stationary = make_stationary
+
+    def fit(self, df: pd.DataFrame = None):
+        pass
+
+    def __call__(self, df: pd.DataFrame):
+        dates = df.index.get_level_values("datetime").unique()
+        start_time, end_time = dates.min(), dates.max()
+
+        print(f"Fetching macro data for tickers. stationary processing: {self.make_stationary}...")
+
+        macro_data = D.features(self.macro_tickers, self.fields, start_time=start_time, end_time=end_time)
+
+        macro_df = macro_data.unstack(level='instrument')
+
+        # calculate the Spread between 10Y-US GB yield and 10Y-JP GB yield if both are present
+        if ('$close', '10Y_US') in macro_df.columns and ('$close', '10Y_JP') in macro_df.columns:
+            macro_df[('$close', 'US_JP_Spread')] = macro_df[('$close', '10Y_US')] - macro_df[('$close', '10Y_JP')]
+
+            macro_df = macro_df.drop(columns=[('$close', '10Y_US'), ('$close', '10Y_JP')])
+            print("Added US_JP_Spread feature by calculating the difference between 10Y US and 10Y JP yields. Original absolute value deleted to prevent total collinearity")
+
+        # apply differencing to make features stationary if specified
+        if self.make_stationary:
+            # besides, reserve the original VIX values because VIX is I(0) stationary series.
+            vix_col = ('$close', 'VIX')
+            vix_origin = macro_df[vix_col].copy() if vix_col in macro_df.columns else None
+            macro_df = macro_df.diff()
+            if vix_origin is not None:
+                macro_df[('$close', 'VIX_Origin')] = vix_origin
+            print("Applied differencing to macro features to make them stationary.")
+
+        # rename all macro features
+        macro_df.columns = pd.MultiIndex.from_tuples(
+            [('feature', f"Macro_{tic}") for filed, tic in macro_df.columns]
+        )
+
+        macro_df = macro_df.fillna(method="ffill").fillna(0)
+
+        overlap_cols = df.columns.intersection(macro_df.columns)
+        if not overlap_cols.empty:
+            df = df.drop(columns=overlap_cols)
+
+        # concatenate macro features after the original dataset
+        merged_df = df.join(macro_df, on='datetime', how='left')
+        merged_df = merged_df.fillna(method='ffill').fillna(0)
+
+        return merged_df
+
+
+class CrossMarketSpilloverProcessor(Processor):
+    def __init__(self, target_instrument='JP_225'):
+        super().__init__()
+        self.target_instrument = target_instrument
+
+    def fit(self, df: pd.DataFrame = None):
+        pass
+
+    def __call__(self, df: pd.DataFrame):
+        print(f"Executing Cross-Market Spillover to target instrument: {self.target_instrument}...")
+        idx = pd.IndexSlice
+
+        # 1. fetching all features, instrument spread into columns
+        feat_df = df['feature'].unstack(level='instrument')
+        # feat_df = df.unstack(level='instrument')
+
+        # 2. other markets
+        all_insts = df.index.get_level_values("instrument").unique()
+        other_insts = [inst for inst in all_insts if inst != self.target_instrument]
+
+        # nikkei's row mask and date
+        target_mask = df.index.get_level_values('instrument') == self.target_instrument
+        target_dates = df[target_mask].index.get_level_values("datetime")
+
+        target_idx = df[target_mask].index
+        new_cols = {}
+
+        # 3. rename features of other markets and spillover to Nikkei's row
+        for inst in other_insts:
+            if inst in feat_df.columns.get_level_values('instrument'):
+                # other markets' features
+                inst_features = feat_df.xs(inst, level='instrument', axis=1)
+
+                reindexed = inst_features.reindex(target_dates)
+                for feat_name in inst_features.columns:
+                    # new_col_name = f"{inst}_{feat_name}"
+                    # reindex to
+                    # aligned_values = inst_features.reindex(target_dates)[feat_name].values
+                    # df.loc[target_mask, ('feature', new_col_name)] = aligned_values
+
+                    col_key = ('feature', f"{inst}_{feat_name}")
+                    new_cols[col_key] = reindexed[feat_name].values
+
+        if new_cols:
+            new_df = pd.DataFrame(new_cols, index=target_idx)
+            new_df.columns = pd.MultiIndex.from_tuples(new_df.columns)
+            result_df = df.loc[target_mask].copy()
+            result_df = pd.concat([result_df, new_df], axis=1)
+        else:
+            result_df = df.loc[target_mask].copy()
+
+        print(f"Spillover complete. Total features per row now: {result_df['feature'].shape[1]}")
+        return result_df
+
+class FeatureSelectionProcessor(Processor):
+    def __init__(self, selected_features: set):
+        self.selected_features = selected_features
+        super().__init__()
+
+    def __call__(self, df: pd.DataFrame):
+        print(f"Executing Feature Selection Processor...")
+        if not self.selected_features:
+            return df
+
+        cols_to_keep = []
+        for col in df.columns:
+            # Qlib MultiIndex structure: ('feature'/'label', 'feature_name')
+            if isinstance(col, tuple):
+                group, name = col[0], col[1]
+                # keep label and selected features
+                if group !='feature' or name in self.selected_features:
+                    cols_to_keep.append(col)
+            else:
+                if col in self.selected_features or "Target" in col or "label" in col:
+                    cols_to_keep.append(col)
+
+        return df[cols_to_keep]
+

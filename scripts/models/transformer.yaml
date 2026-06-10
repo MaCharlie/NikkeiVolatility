@@ -1,0 +1,27 @@
+model:
+  class: TransformerModel
+  module_path: qlib.contrib.model.pytorch_transformer
+  kwargs:
+    d_feat: 100
+    hidden_size: 64
+    num_layers: 2
+    n_heads: 2
+    dropout: 0.1
+    batch_size: 256
+    n_epochs: 50
+    lr: 0.001
+    early_stop: 10
+    loss: mse
+    optimizer: adam
+    GPU: -1
+
+dataset:
+  class: TSDatasetH
+  module_path: qlib.data.dataset
+  kwargs:
+    step_len: 20
+    handler: {}
+    segments:
+      train: ["2010-01-01","2019-12-31" ]
+      valid: ["2020-01-01","2021-12-31"]
+      test: ["2022-01-01","2025-12-31"]

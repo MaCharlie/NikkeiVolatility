@@ -13,13 +13,13 @@ data_handler:
     learn_processors:
       # dataset structure transformation, must be the first processor in the list
       - class: "CrossMarketSpilloverProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
+        module_path: "scripts.feature_engineering.custom_processors"
         kwargs:
           target_instrument: 'JP_225'
 
       # macro data broadcasting, must be after the dataset structure transformation processor
       - class: "MacroBroadcastProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
+        module_path: "scripts.feature_engineering.custom_processors"
         kwargs:
           macro_tickers: ['10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX']
           fields: ['$close']
@@ -40,12 +40,12 @@ data_handler:
     infer_processors:
       # there mustn't be DropnaLabel processor in the infer_processors, otherwise there will be no data for inference after dropping na labels
       - class: "CrossMarketSpilloverProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
+        module_path: "scripts.feature_engineering.custom_processors"
         kwargs:
           target_instrument: 'JP_225'
 
       - class: "MacroBroadcastProcessor"
-        module_path: "scripts.feature_engineering.custom_modules"
+        module_path: "scripts.feature_engineering.custom_processors"
         kwargs:
           macro_tickers: [ '10Y_US', '10Y_JP', 'GOLD', 'BCO', 'DXY', 'USD_JPY', 'VIX' ]
           fields: [ '$close' ]
