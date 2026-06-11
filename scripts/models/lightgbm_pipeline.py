@@ -54,7 +54,7 @@ def train():
 
     print("Saving LightGBM")
     timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    save_dir = os.path.join(root_dir, f"results/{timestamp}")
+    save_dir = os.path.join(root_dir, f"results/lightgbm/{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
 
     # 1. training curve

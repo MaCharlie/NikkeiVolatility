@@ -3,12 +3,13 @@ model:
   module_path: qlib.contrib.model.pytorch_transformer
   kwargs:
     d_feat: 100
-    hidden_size: 64
+    d_model: 64
     num_layers: 2
-    n_heads: 2
+    nhead: 2
     dropout: 0.1
-    batch_size: 256
+    batch_size: 32
     n_epochs: 50
+    step_len: 20
     lr: 0.001
     early_stop: 10
     loss: mse
@@ -16,10 +17,9 @@ model:
     GPU: -1
 
 dataset:
-  class: TSDatasetH
+  class: DatasetH
   module_path: qlib.data.dataset
   kwargs:
-    step_len: 20
     handler: {}
     segments:
       train: ["2010-01-01","2019-12-31" ]
