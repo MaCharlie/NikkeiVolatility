@@ -1,19 +1,25 @@
 model:
-  class: TransformerModel
-  module_path: qlib.contrib.model.pytorch_transformer
+  class: AdvancedTransformerModel
+  module_path: custom_models
   kwargs:
-    d_feat: 15 # 15 best
-    d_model: 8
+    d_feat: 20 # 20 best
+    d_model: 16
     num_layers: 2 # 1 or 2
     nhead: 2
-    dropout: 0.2
+    dropout: 0.3 # 0.4 best
     batch_size: 32 # 32 best
-    n_epochs: 200
+    n_epochs: 300
     step_len: 20
-    lr: 0.0001 # 0.0001 best
-    early_stop: 30
+
+    lr: 0.00007 # 0.00005 best
+    T_max: 200
+    eta_min: 0.00001
+
+    early_stop: 40
     loss: mse
     optimizer: adam
+    optimizer_kwargs:
+      weight_decay: 0.00001
     GPU: -1
 
 dataset:

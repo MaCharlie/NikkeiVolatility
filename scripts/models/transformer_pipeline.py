@@ -89,7 +89,7 @@ def train_transformer(gbm_save_dir):
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         save_path = os.path.join(root_dir, "results/transformer", timestamp)
         os.makedirs(save_path, exist_ok=True)
-
+        joblib.dump(model, os.path.join(save_path, "model.pkl"))
         training_curve(evals_record, model, save_path)
 
         pred = model.predict(dataset)
@@ -97,7 +97,7 @@ def train_transformer(gbm_save_dir):
 
         with open(os.path.join(save_path, "transformer_config.yaml"), 'w', encoding="utf-8") as f:
             yaml.dump(transformer_config, f)
-        joblib.dump(model, os.path.join(save_path, "model.pkl"))
+
         print(f"Transformer trained successfully. Predictions saved to {save_path}")
 
     return save_path
@@ -125,7 +125,7 @@ def training_curve(evals_record, model, save_dir):
 
     best_iteration = val_loss.index(min(val_loss))
     if best_iteration > 0:
-        plt.axvline(x=best_iteration, color='red', linestyle='--', label=f'Early Stop (Round: {best_iteration})')
+        plt.axvline(x=best_iteration, color='red', linestyle='--', label=f'Early Stop (Round: {best_iteration}, best score: {round(val_loss[best_iteration], 4)})')
 
     plt.title(f"Transformer Learning Curve ({metric})", fontsize=14)
     plt.xlabel('Epoch', fontsize=12)
@@ -246,7 +246,8 @@ def extract_and_plot_attention(target_date, save_dir,
     # 构造 X 轴与 Y 轴的学术标签
     labels = [f"T-{window_size - 1 - i}" if i != window_size - 1 else "T (Target)" for i in range(window_size)]
 
-    sns.heatmap(attn_matrix, cmap='YlGnBu', annot=False,
+    sns.heatmap(attn_matrix, vmin=attn_matrix.min(), vmax=attn_matrix.max(),
+                cmap='YlGnBu', annot=False,
                 xticklabels=labels, yticklabels=labels,
                 linewidths=0.5, linecolor='gray')
 
@@ -260,7 +261,8 @@ def extract_and_plot_attention(target_date, save_dir,
     plt.tight_layout()
 
     os.makedirs(save_dir, exist_ok=True)
-    out_path = os.path.join(save_dir, f"attention_heatmap_{target_date}.png")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out_path = os.path.join(save_dir, f"attention_heatmap_{target_date}_{timestamp}.png")
     plt.savefig(out_path, dpi=300)
     print(f"🎉 Attention heatmap perfectly saved to: {out_path}")
 
@@ -268,8 +270,8 @@ def extract_and_plot_attention(target_date, save_dir,
 
 if __name__ == '__main__':
     gbm_save_dir = os.path.join(root_dir, f"results/lightgbm/20260610-202157")
-    # train_transformer(gbm_save_dir)
-    save_dir = os.path.join(root_dir, f"results/transformer/20260612-173811_best")
+    save_dir = train_transformer(gbm_save_dir)
+    # save_dir = os.path.join(root_dir, f"results/transformer/20260617-013936")
     extract_and_plot_attention(save_dir=save_dir, gbm_save_dir=gbm_save_dir,
                                target_date="2024-08-05",
                                instrument="JP_225")
