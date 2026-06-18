@@ -182,84 +182,41 @@ def shap_summary(model, save_dir, X_test):
 
 
 
+def IC(save_dir, rolling_window=60):
+    eval_df = pd.read_csv(os.path.join(save_dir, "prediction_results.csv"))
+    print(f"Time Series IC Evaluation")
 
+    overall_ic = pearsonr(eval_df['prediction'], eval_df['Target'])[0]
+    overall_rank_ic = spearmanr(eval_df['prediction'], eval_df['Target'])[0]
 
-# def evaluate_and_visualize(save_dir):
-#
-#     # individual run without training
-#     provider_uri = os.path.join(root_dir, "data/nikkei_data")
-#     qlib.init(provider_uri=provider_uri, region="cn")
-#
-#     model = joblib.load(os.path.join(save_dir, "lightgbm_model.pkl"))
-#
-#     # 加载配置，重建 dataset
-#     with open(os.path.join(save_dir, "config.yaml"), 'r', encoding="utf-8") as f:
-#         dataset_config, lightgbm_config = yaml.safe_load(f)
-#
-#     dataset = init_instance_by_config(dataset_config)
-#
-#
-#     # prepare for predicting
-#     print("Evaluating model performance on test set.")
-#     df_test = dataset.prepare("test", col_set=["feature", "label"])
-#     X_test = df_test["feature"]
-#     y_test = df_test["label"].iloc[:,0]
-#
-#     pred = model.predict(dataset, segment='test')
-#     eval_df = pd.DataFrame({"Target": y_test, "Prediction": pred})
-#     eval_df = eval_df.dropna()
-#
-#     lgb_booster = model.model
-#
-#
-#     """ 4. IC and Rank IC"""
-#     print("4. calculating Information Coefficient")
-#     daily_ic = eval_df.groupby(level='datetime').apply(lambda x: clac_daily_ic(x, method="pearson"))
-#     daily_rank_ic = eval_df.groupby(level='datetime').apply(lambda x: clac_daily_ic(x, method="spearman"))
-#     mean_ic = daily_ic.mean()
-#     mean_rank_ic = daily_rank_ic.mean()
-#     ir = mean_rank_ic / daily_rank_ic.std()
-#
-#     print(f"=================")
-#     print("test set report")
-#     print(f"=================")
-#     print(f"mean IC: {mean_ic: .4f}")
-#     print(f"mean rank_IC: {mean_rank_ic: .4f}")
-#     print(f"rank IR: {ir: .4f}")
-#     print(f"==================")
-#
-#     plt.figure(figsize=(10, 5))
-#     daily_rank_ic.cumsum().plot(color='darkorange')
-#     plt.title("Cumulative Rank IC Over Time", fontsize=14)
-#     plt.xlabel("Date", fontsize=14)
-#     plt.ylabel("Cumulative Rank IC", fontsize=14)
-#     plt.tight_layout()
-#     plt.savefig(os.path.join(save_dir, "cumulative_rank_ic.png"), dpi=300)
-#     plt.show()
-#
-#     # Here you can add code to calculate performance metrics like MSE, R^2, etc.
-#     print("Evaluation completed. (Add metric calculations here)")
+    print(f"Overall IC (Pearson): {overall_ic:.4f}")
+    print(f"Overall Rank IC (Spearman): {overall_rank_ic:.4f}")
 
-def clac_daily_ic(df, method="pearson"):
-    if len(df)<5:
-        return np.nan
-    if method=="pearson":
-        return pearsonr(df['Predict'], df['Target'])[0]
-    else:
-        return spearmanr(df['Predict'], df['Target'])[0]
+    pred_rank = eval_df['prediction'].rolling(rolling_window).rank()
+    target_rank = eval_df['Target'].rolling(rolling_window).rank()
+    eval_df['rolling_rank_ic'] = pred_rank.rolling(rolling_window).corr(target_rank)
+
+    plt.figure(figsize=(10, 5))
+    dates = eval_df.get('datetime')
+    plt.plot(dates, eval_df['rolling_rank_ic'], color='tab:purple', label='rolling rank ic', linewidth=1.5)
+    plt.axhline(y=0, color='red', linestyle='--', alpha=0.6)
+    plt.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] > 0), color='tab:red', alpha=0.3)
+    plt.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] < 0), color='tab:blue', alpha=0.3)
+
+    plt.title(f"{rolling_window}-Day Rolling Rank IC (Time Series)", fontsize=14)
+    plt.xlabel('Date', fontsize=12)
+    plt.ylabel('Rolling Rank IC', fontsize=12, alpha=0.6)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.tight_layout()
+
+    ic_path = os.path.join(save_dir, "IC.png")
+    plt.savefig(ic_path, dpi=300)
+    print(f"Rolling rank IC saved to {ic_path}")
+    plt.close()
+
 
 if __name__ == "__main__":
-    save_dir = train()
-
-    # save_dir = "/Users/light/Projects/landQuant/results/20260605-200857"
-    # model = joblib.load(os.path.join(save_dir, "lightgbm_model.pkl"))
-    #
-    # # 调试：打印模型的所有属性
-    # print("Model attributes:", dir(model))
-    # print("LGBBooster attributes:", dir(model.model))
-    #
-    # # 检查是否有评估结果
-    # if hasattr(model.model, 'evals_result_'):
-    #     print("Found evals_result_:", model.model.evals_result_)
-    # evaluate_and_visualize(save_dir)
+    # save_dir = train()
+    save_dir = os.path.join(root_dir, "results/lightgbm/20260610-202157")
+    IC(save_dir)
 

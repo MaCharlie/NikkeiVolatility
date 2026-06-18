@@ -16,6 +16,8 @@ from qlib.workflow import R
 import seaborn as sns
 import torch
 
+import lightgbm_pipeline
+
 # MacOS setting to prevent C/C++ threads conflict
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
@@ -93,7 +95,12 @@ def train_transformer(gbm_save_dir):
         training_curve(evals_record, model, save_path)
 
         pred = model.predict(dataset)
-        pred.to_csv(os.path.join(save_path, "predictions.csv"))
+        pred_df = pred.to_frame(name="prediction")
+        label_df = dataset.prepare("test", col_set='label')
+        label_df.columns = ["Target"]
+        eval_df = pred_df.join(label_df, how='inner')
+
+        eval_df.to_csv(os.path.join(save_path, "prediction_results.csv"))
 
         with open(os.path.join(save_path, "transformer_config.yaml"), 'w', encoding="utf-8") as f:
             yaml.dump(transformer_config, f)
@@ -271,7 +278,8 @@ def extract_and_plot_attention(target_date, save_dir,
 if __name__ == '__main__':
     gbm_save_dir = os.path.join(root_dir, f"results/lightgbm/20260610-202157")
     save_dir = train_transformer(gbm_save_dir)
-    # save_dir = os.path.join(root_dir, f"results/transformer/20260617-013936")
+    # save_dir = os.path.join(root_dir, f"results/transformer/20260618-173509")
     extract_and_plot_attention(save_dir=save_dir, gbm_save_dir=gbm_save_dir,
                                target_date="2024-08-05",
                                instrument="JP_225")
+    lightgbm_pipeline.IC(save_dir=save_dir, rolling_window=60)
