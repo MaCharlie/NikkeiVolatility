@@ -9,6 +9,7 @@ import lightgbm as lgb
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import xlabel
 from numpy import ndarray
+import matplotlib.dates as mdates
 from qlib.utils import init_instance_by_config
 import os
 import shap
@@ -192,27 +193,37 @@ def IC(save_dir, rolling_window=60):
     print(f"Overall IC (Pearson): {overall_ic:.4f}")
     print(f"Overall Rank IC (Spearman): {overall_rank_ic:.4f}")
 
-    pred_rank = eval_df['prediction'].rolling(rolling_window).rank()
-    target_rank = eval_df['Target'].rolling(rolling_window).rank()
+    pred_rank = eval_df['prediction'].rank()
+    target_rank = eval_df['Target'].rank()
     eval_df['rolling_rank_ic'] = pred_rank.rolling(rolling_window).corr(target_rank)
 
-    plt.figure(figsize=(10, 5))
-    dates = eval_df.get('datetime')
-    plt.plot(dates, eval_df['rolling_rank_ic'], color='tab:purple', label='rolling rank ic', linewidth=1.5)
-    plt.axhline(y=0, color='red', linestyle='--', alpha=0.6)
-    plt.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] > 0), color='tab:red', alpha=0.3)
-    plt.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] < 0), color='tab:blue', alpha=0.3)
 
-    plt.title(f"{rolling_window}-Day Rolling Rank IC (Time Series)", fontsize=14)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    dates = pd.to_datetime(eval_df['datetime'])
+    ax.plot(dates, eval_df['rolling_rank_ic'], color='tab:purple', label='rolling rank ic', linewidth=1.5)
+
+    ax.axhline(y=0, color='red', linestyle='--', alpha=0.6)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=range(1, 13)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+    ax.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] > 0), color='tab:red', alpha=0.3)
+    ax.fill_between(dates, eval_df['rolling_rank_ic'], 0, where=(eval_df['rolling_rank_ic'] < 0), color='tab:blue', alpha=0.3)
+
+    plt.title(f"{rolling_window}-Day Rolling Rank IC (Time Series)\nOverall IC: {overall_ic:.4f}, Overall Rank IC: {overall_rank_ic:.4f}", fontsize=14)
     plt.xlabel('Date', fontsize=12)
     plt.ylabel('Rolling Rank IC', fontsize=12, alpha=0.6)
     plt.grid(True, linestyle=':', alpha=0.6)
+    plt.grid(which='major', linestyle=':', linewidth=0.5, color='black')
+    plt.grid(which='minor', linestyle=':', linewidth=0.3, color='grey')
     plt.tight_layout()
 
     ic_path = os.path.join(save_dir, "IC.png")
     plt.savefig(ic_path, dpi=300)
     print(f"Rolling rank IC saved to {ic_path}")
     plt.close()
+
 
 
 if __name__ == "__main__":
